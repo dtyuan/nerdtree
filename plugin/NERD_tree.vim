@@ -3484,11 +3484,45 @@ endfunction
 function! s:toggle(dir)
     if s:treeExistsForTab()
         if !s:isTreeOpen()
-            call s:createTreeWin()
-            if !&hidden
-                call s:renderView()
+            if a:dir ==# ''
+                call s:createTreeWin()
+                if !&hidden
+                    call s:renderView()
+                endif
+                call s:restoreScreenState()
+            else
+                " /* DTY: switch to pwd of opened file as root when open tree
+                "let dir = a:dir ==# '' ? getcwd() : a:dir
+                let dir = a:dir
+                if dir =~ '^\.'
+                    let dir = getcwd() . s:Path.Slash() . dir
+                endif
+                let dir = resolve(dir)
+                try
+                    let path = s:Path.New(dir)
+                    call path.changeToDir()
+                    let newRoot = s:TreeDirNode.New(path)
+                    call newRoot.open()
+
+                    call s:createTreeWin()
+                    let b:treeShowHelp = 0
+                    let b:NERDTreeIgnoreEnabled = 1
+                    let b:NERDTreeShowFiles = g:NERDTreeShowFiles
+                    let b:NERDTreeShowHidden = g:NERDTreeShowHidden
+                    let b:NERDTreeShowBookmarks = g:NERDTreeShowBookmarks
+                    let b:NERDTreeRoot = newRoot
+
+                    let b:NERDTreeType = "primary"
+
+                    call s:renderView()
+                    call b:NERDTreeRoot.putCursorHere(0, 0)
+                    return
+                catch /^NERDTree.InvalidArgumentsError/
+                    call s:echo("No bookmark or directory found for: " . dir)
+                    return
+                endtry
+                " DTY */
             endif
-            call s:restoreScreenState()
         else
             call s:closeTree()
         endif
